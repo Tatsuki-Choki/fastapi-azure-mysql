@@ -4,6 +4,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import traceback # For detailed error logging
+import pathlib
 
 # .envファイルはこのdatabase.pyと同じ backend/ フォルダにあると想定
 load_dotenv()
@@ -13,27 +14,21 @@ DB_PORT = os.getenv("DB_PORT", "3306")
 DB_NAME = os.getenv("DB_NAME")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
-SSL_CA_PATH = os.getenv("SSL_CA_PATH")
 
-# Validate required environment variables and show which ones are missing
-required_vars = {
-    "DB_HOST": DB_HOST,
-    "DB_NAME": DB_NAME,
-    "DB_USER": DB_USER,
-    "DB_PASSWORD": DB_PASSWORD,
-}
-missing = [name for name, value in required_vars.items() if not value]
-if missing:
-    missing_str = ", ".join(missing)
+# 証明書ファイルのパスを直接指定（backend直下にあるファイル）
+current_dir = pathlib.Path(__file__).parent  # database.pyがあるディレクトリ（backend）
+SSL_CA_PATH = current_dir / "DigiCertGlobalRootCA.crt.pem"
+
+if not all([DB_HOST, DB_NAME, DB_USER, DB_PASSWORD]):
     raise ValueError(
-        f"Missing required database environment variables: {missing_str}. "
-        "Please check your .env or application settings."
+        "Database connection information (DB_HOST, DB_NAME, DB_USER, DB_PASSWORD) "
+        "is missing or incomplete in .env file. Please check."
     )
 
-if not SSL_CA_PATH or not os.path.exists(SSL_CA_PATH):
+if not os.path.exists(SSL_CA_PATH):
     raise ValueError(
-        f"SSL_CA_PATH '{SSL_CA_PATH}' is not set or the file does not exist. "
-        "Azure MySQL requires SSL, please provide a valid CA certificate path."
+        f"SSL Certificate file '{SSL_CA_PATH}' does not exist. "
+        "Azure MySQL requires SSL, please ensure the certificate file is present."
     )
 
 SQLALCHEMY_DATABASE_URL = (
@@ -41,12 +36,12 @@ SQLALCHEMY_DATABASE_URL = (
     f"{DB_HOST}:{DB_PORT}/{DB_NAME}"
 )
 
-# SSL接続設定: WorkbenchでCA証明書を指定したので、それをPyMySQLに渡す
+# SSL接続設定: backend直下にある証明書ファイルを使用
 # ssl_mode='VERIFY_CA' は、指定されたCAに対してサーバー証明書を検証することを意味します。
 engine_args = {
     "connect_args": {
         "ssl": {
-            "ca": SSL_CA_PATH,
+            "ca": str(SSL_CA_PATH),  # Path型からstr型に変換
             # "ssl_mode": "VERIFY_CA" # PyMySQL < 1.0.0 might not support ssl_mode directly in dict
                                      # For PyMySQL 1.0.0+ and MySQL Connector/Python, ssl_ca is enough for VERIFY_CA behavior by default
                                      # If specific ssl_mode is needed and supported:
@@ -92,8 +87,8 @@ if __name__ == "__main__":
     # このファイルが直接実行された場合に接続テストを行う
     if not DB_NAME:
         print("DB_NAME is not set in .env file. Please set it before testing.")
-    elif not SSL_CA_PATH or not os.path.exists(SSL_CA_PATH):
-        print(f"SSL_CA_PATH '{SSL_CA_PATH}' is not valid. Please check .env and file existence.")
+    elif not os.path.exists(SSL_CA_PATH):
+        print(f"SSL Certificate file '{SSL_CA_PATH}' does not exist. Please check file existence.")
     elif test_db_connection():
         print("Database connection test successful.")
     else:

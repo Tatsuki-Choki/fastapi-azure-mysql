@@ -22,17 +22,22 @@ print(f"DB_NAME: {DB_NAME}")
 # MySQLのURL構築
 DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-SSL_CA_PATH = os.getenv('SSL_CA_PATH', '')
+# 証明書ファイルのパスを直接指定（backend直下にあるファイルを参照）
+import pathlib
+
+# 現在のファイルからの相対パスで証明書を指定
+current_dir = pathlib.Path(__file__).parent.parent  # backend ディレクトリ
+SSL_CA_PATH = current_dir / "DigiCertGlobalRootCA.crt.pem"
 
 # エンジンの作成
 connect_args = {}
-if SSL_CA_PATH and os.path.exists(SSL_CA_PATH):
+if os.path.exists(SSL_CA_PATH):
     print(f"Using SSL CA certificate: {SSL_CA_PATH}")
     connect_args = {
-        "ssl_ca": SSL_CA_PATH
+        "ssl_ca": str(SSL_CA_PATH)
     }
 else:
-    print("No SSL CA certificate specified or file not found, connecting without SSL")
+    print("SSL CA certificate file not found, connecting without SSL")
 
 engine = create_engine(
     DATABASE_URL,
