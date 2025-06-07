@@ -15,10 +15,19 @@ DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 SSL_CA_PATH = os.getenv("SSL_CA_PATH")
 
-if not all([DB_HOST, DB_NAME, DB_USER, DB_PASSWORD]):
+# Validate required environment variables and show which ones are missing
+required_vars = {
+    "DB_HOST": DB_HOST,
+    "DB_NAME": DB_NAME,
+    "DB_USER": DB_USER,
+    "DB_PASSWORD": DB_PASSWORD,
+}
+missing = [name for name, value in required_vars.items() if not value]
+if missing:
+    missing_str = ", ".join(missing)
     raise ValueError(
-        "Database connection information (DB_HOST, DB_NAME, DB_USER, DB_PASSWORD) "
-        "is missing or incomplete in .env file. Please check."
+        f"Missing required database environment variables: {missing_str}. "
+        "Please check your .env or application settings."
     )
 
 if not SSL_CA_PATH or not os.path.exists(SSL_CA_PATH):
